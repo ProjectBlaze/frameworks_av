@@ -305,7 +305,7 @@ audio_flags_mask_t AAudio_computeAudioFlagsMask(
         flagsMask = static_cast<audio_flags_mask_t>(flagsMask | AUDIO_FLAG_DEEP_BUFFER);
     }
 
-    return flagsMask;
+    return AUDIO_FLAG_NONE;
 }
 
 audio_flags_mask_t AAudioConvert_privacySensitiveToAudioFlagsMask(
