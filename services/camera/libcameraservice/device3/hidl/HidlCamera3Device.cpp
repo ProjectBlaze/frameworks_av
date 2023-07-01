@@ -29,8 +29,10 @@
 #define CLOGE(fmt, ...) ALOGE("Camera %s: %s: " fmt, mId.string(), __FUNCTION__, \
             ##__VA_ARGS__)
 
+#ifdef CAMERA_NEEDS_DEPTH_SENSOR_OVERRIDE
 #define CLOGW(fmt, ...) ALOGW("Camera %s: %s: " fmt, mId.string(), __FUNCTION__, \
  ##__VA_ARGS__)
+#endif
 
 // Convenience macros for transitioning to the error state
 #define SET_ERR(fmt, ...) setErrorState(   \
@@ -49,6 +51,8 @@
 #include <utils/Trace.h>
 #include <utils/Timers.h>
 #include <cutils/properties.h>
+
+#include <android-base/properties.h>
 
 #include <android/hardware/camera/device/3.7/ICameraInjectionSession.h>
 #include <android/hardware/camera2/ICameraDeviceUser.h>
@@ -183,10 +187,11 @@ status_t HidlCamera3Device::initialize(sp<CameraProviderManager> manager,
                     physicalId, /*overrideForPerfClass*/false, &mPhysicalDeviceInfoMap[physicalId],
                     /*overrideToPortrait*/false);
             if (res != OK) {
+#ifdef CAMERA_NEEDS_DEPTH_SENSOR_OVERRIDE
                 CLOGW("Could not retrieve camera %s characteristics: %s (%d)",
                         physicalId.c_str(), strerror(-res), res);
-                // HACK for ginkgo - check camera id 20 for depth sensor
-                physicalId = "20";
+                std::string overrideCameraID = android::base::GetProperty("persist.sys.vendor.camera_override_id", "20");
+                physicalId = overrideCameraID;
                 CLOGW("Trying physical camera %s if available", physicalId.c_str());
                 res = manager->getCameraCharacteristics(
                         physicalId, false, &mPhysicalDeviceInfoMap[physicalId], true);
@@ -196,6 +201,12 @@ status_t HidlCamera3Device::initialize(sp<CameraProviderManager> manager,
                     session->close();
                     return res;
                 }
+#else
+                SET_ERR_L("Could not retrieve camera %s characteristics: %s (%d)",
+                        physicalId.c_str(), strerror(-res), res);
+                session->close();
+                return res;
+#endif
             }
 
             bool usePrecorrectArray =
